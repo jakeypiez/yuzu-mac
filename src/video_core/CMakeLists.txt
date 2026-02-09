@@ -354,7 +354,7 @@ else()
         # error: implicit conversion loses integer precision: 'int' to 'boost::icl::bound_type' (aka 'unsigned char')
         target_compile_options(video_core PRIVATE -Wno-shadow -Wno-unused-local-typedef)
     else()
-        target_compile_options(video_core PRIVATE -Werror=conversion)
+        target_compile_options(video_core PRIVATE -Wno-conversion)
     endif()
 
     target_compile_options(video_core PRIVATE

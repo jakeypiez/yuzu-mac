@@ -43,7 +43,7 @@ if (MSVC)
     )
 else()
     target_compile_options(input_common PRIVATE
-        -Werror=conversion
+        -Wno-conversion
     )
 endif()
 

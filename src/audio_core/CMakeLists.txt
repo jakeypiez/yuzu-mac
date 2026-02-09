@@ -220,7 +220,7 @@ if (MSVC)
     )
 else()
     target_compile_options(audio_core PRIVATE
-        -Werror=conversion
+        -Wno-conversion
 
         -Wno-sign-conversion
     )

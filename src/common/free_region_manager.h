@@ -4,7 +4,11 @@
 #pragma once
 
 #include <mutex>
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshadow"
 #include <boost/icl/interval_set.hpp>
+#pragma clang diagnostic pop
 
 namespace Common {
 

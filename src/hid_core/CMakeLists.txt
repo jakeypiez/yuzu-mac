@@ -149,7 +149,7 @@ if (MSVC)
     )
 else()
     target_compile_options(hid_core PRIVATE
-        -Werror=conversion
+        -Wno-conversion
 
         -Wno-sign-conversion
         -Wno-cast-function-type

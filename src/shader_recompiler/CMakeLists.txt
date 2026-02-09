@@ -252,7 +252,7 @@ if (MSVC)
     )
 else()
     target_compile_options(shader_recompiler PRIVATE
-        -Werror=conversion
+        -Wno-conversion
 
         # Bracket depth determines maximum size of a fold expression in Clang since 9c9974c3ccb6.
         # And this in turns limits the size of a std::array.

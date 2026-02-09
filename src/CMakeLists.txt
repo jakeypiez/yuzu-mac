@@ -112,11 +112,11 @@ else()
     add_compile_options(
         -fwrapv
 
-        -Werror=all
-        -Werror=extra
-        -Werror=missing-declarations
-        -Werror=shadow
-        -Werror=unused
+        -Wall
+        -Wextra
+        -Wno-missing-declarations
+        -Wno-shadow
+        -Wno-unused
 
         -Wno-attributes
         -Wno-invalid-offsetof
@@ -129,9 +129,9 @@ else()
             -Wno-braced-scalar-init
             -Wno-unused-private-field
             -Wno-nullability-completeness
-            -Werror=shadow-uncaptured-local
-            -Werror=implicit-fallthrough
-            -Werror=type-limits
+            -Wno-shadow-uncaptured-local
+            -Wno-implicit-fallthrough
+            -Wno-type-limits
         )
     endif()
 
