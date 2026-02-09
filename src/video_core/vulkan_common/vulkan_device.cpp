@@ -981,6 +981,14 @@ bool Device::GetSuitability(bool requires_swapchain) {
 #undef FEATURE_EXTENSION
 #undef EXTENSION
 
+#ifdef __APPLE__
+    // MoltenVK requires VK_KHR_portability_subset to be enabled at device creation.
+    // Per Vulkan spec, if a device advertises this extension, it MUST be enabled.
+    if (supported_extensions.contains("VK_KHR_portability_subset")) {
+        loaded_extensions.insert("VK_KHR_portability_subset");
+    }
+#endif
+
     // Some extensions are mandatory. Check those.
 #define CHECK_EXTENSION(extension_name)                                                            \
     if (!loaded_extensions.contains(extension_name)) {                                             \
