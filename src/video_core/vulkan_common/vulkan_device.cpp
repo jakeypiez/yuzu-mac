@@ -1047,6 +1047,16 @@ bool Device::GetSuitability(bool requires_swapchain) {
 #undef EXT_FEATURE
 #undef FEATURE
 
+    // Add portability subset features to the chain on Apple/MoltenVK
+#ifdef __APPLE__
+    if (supported_extensions.contains("VK_KHR_portability_subset")) {
+        has_portability_subset = true;
+        portability_subset_features.sType =
+            static_cast<VkStructureType>(1000163000); // VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR
+        SetNext(next, portability_subset_features);
+    }
+#endif
+
     // Perform the feature test.
     physical.GetFeatures2(features2);
     features.features = features2.features;

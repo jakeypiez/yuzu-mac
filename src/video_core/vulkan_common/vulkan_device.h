@@ -785,6 +785,31 @@ private:
         VkPhysicalDeviceFeatures features{};
     };
 
+    // Portability subset features for MoltenVK (structure is behind VK_ENABLE_BETA_EXTENSIONS)
+#ifdef __APPLE__
+    struct PortabilitySubsetFeatures {
+        VkStructureType sType = static_cast<VkStructureType>(1000163000);
+        void* pNext = nullptr;
+        VkBool32 constantAlphaColorBlendFactors = VK_FALSE;
+        VkBool32 events = VK_FALSE;
+        VkBool32 imageViewFormatReinterpretation = VK_FALSE;
+        VkBool32 imageViewFormatSwizzle = VK_FALSE;
+        VkBool32 imageView2DOn3DImage = VK_FALSE;
+        VkBool32 multisampleArrayImage = VK_FALSE;
+        VkBool32 mutableComparisonSamplers = VK_FALSE;
+        VkBool32 pointPolygons = VK_FALSE;
+        VkBool32 samplerMipLodBias = VK_FALSE;
+        VkBool32 separateStencilMaskRef = VK_FALSE;
+        VkBool32 shaderSampleRateInterpolationFunctions = VK_FALSE;
+        VkBool32 tessellationIsolines = VK_FALSE;
+        VkBool32 tessellationPointMode = VK_FALSE;
+        VkBool32 triangleFans = VK_FALSE;
+        VkBool32 vertexAttributeAccessBeyondStride = VK_FALSE;
+    };
+    PortabilitySubsetFeatures portability_subset_features{};
+    bool has_portability_subset = false;
+#endif
+
     struct Properties {
         VkPhysicalDeviceDriverProperties driver{};
         VkPhysicalDeviceSubgroupProperties subgroup_properties{};

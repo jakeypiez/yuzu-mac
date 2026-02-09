@@ -456,7 +456,11 @@ QueriesPrefixScanPass::QueriesPrefixScanPass(
           device_, descriptor_pool_, QUERIES_SCAN_DESCRIPTOR_SET_BINDINGS,
           QUERIES_SCAN_DESCRIPTOR_UPDATE_TEMPLATE, QUERIES_SCAN_BANK_INFO,
           COMPUTE_PUSH_CONSTANT_RANGE<sizeof(QueriesPrefixScanPushConstants)>,
-          device_.IsSubgroupFeatureSupported(VK_SUBGROUP_FEATURE_BASIC_BIT) &&
+          // MoltenVK's SPIR-V to Metal compiler emits thread_scope_subgroup instead
+          // of thread_scope_simdgroup, causing shader compilation failures. Force the
+          // nosubgroups variant on MoltenVK to avoid this.
+          device_.GetDriverID() != VK_DRIVER_ID_MOLTENVK &&
+                  device_.IsSubgroupFeatureSupported(VK_SUBGROUP_FEATURE_BASIC_BIT) &&
                   device_.IsSubgroupFeatureSupported(VK_SUBGROUP_FEATURE_ARITHMETIC_BIT) &&
                   device_.IsSubgroupFeatureSupported(VK_SUBGROUP_FEATURE_SHUFFLE_BIT) &&
                   device_.IsSubgroupFeatureSupported(VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT)
