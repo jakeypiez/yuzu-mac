@@ -21,7 +21,7 @@ mkdir -p build && cd build
 cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release \
   -DYUZU_USE_BUNDLED_VCPKG=OFF \
   -DUSE_SYSTEM_MOLTENVK=OFF
-ninja -j$(sysctl -n hw.ncpu)
+ninja -j$(sysctl -n hw.ncpu)    # uses all available cores
 ```
 
 Key CMake options:
