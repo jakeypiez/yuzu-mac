@@ -165,9 +165,45 @@ git add externals/dynarmic
 git commit -m "Update dynarmic submodule"
 ```
 
+## Releasing
+
+Release title format: `yuzu-mac vX.Y.Z - macOS Apple Silicon`
+
+Release notes format:
+```markdown
+## Changes
+
+### Bug Fixes
+- Description of each bug fix
+
+### Improvements
+- Description of each improvement
+
+### Testing
+- Game title confirmed working on Apple M-series with MoltenVK
+
+Built on macOS <version> (Apple Silicon), Qt 5.15.x, MoltenVK 1.4.0-yuzu (universal binary).
+```
+
+Commands:
+```bash
+# 1. Create DMG
+hdiutil create -volname yuzu -srcfolder build/bin/yuzu.app \
+  -ov -format UDZO yuzu-mac.dmg
+
+# 2. Tag
+git tag -a vX.Y.Z -m "vX.Y.Z: summary"
+git push yuzu-mac vX.Y.Z
+
+# 3. Create GitHub release with DMG attached
+gh release create vX.Y.Z yuzu-mac.dmg \
+  --repo jakeypiez/yuzu-mac \
+  --title "yuzu-mac vX.Y.Z - macOS Apple Silicon" \
+  --notes "<release notes>"
+```
+
 ## Repository
 
 - **Fork**: [jakeypiez/yuzu-mac](https://github.com/jakeypiez/yuzu-mac)
 - **MoltenVK fork**: [jakeypiez/MoltenVK](https://github.com/jakeypiez/MoltenVK) (release `v1.4.0-yuzu`)
 - **Branch**: `macos-build` (pushed to remote `main`)
-- **Release**: v1.0.2 DMG on GitHub Releases
