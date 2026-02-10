@@ -259,6 +259,7 @@ GraphicsPipeline::GraphicsPipeline(
         num_textures += Shader::NumDescriptors(info->texture_descriptors);
     }
     auto func{[this, shader_notify, &render_pass_cache, &descriptor_pool, pipeline_statistics] {
+      try {
         DescriptorLayoutBuilder builder{MakeBuilder(device, stage_infos)};
         uses_push_descriptor = builder.CanUsePushDescriptor();
         descriptor_set_layout = builder.CreateDescriptorSetLayout(uses_push_descriptor);
@@ -273,9 +274,16 @@ GraphicsPipeline::GraphicsPipeline(
         const VkRenderPass render_pass{render_pass_cache.Get(MakeRenderPassKey(key.state))};
         Validate();
         MakePipeline(render_pass);
-        if (pipeline_statistics) {
+        if (pipeline_statistics && !is_build_failed) {
             pipeline_statistics->Collect(*pipeline);
         }
+      } catch (const std::exception& e) {
+        LOG_ERROR(Render_Vulkan, "Graphics pipeline build failed: {}", e.what());
+        is_build_failed = true;
+      } catch (...) {
+        LOG_ERROR(Render_Vulkan, "Graphics pipeline build failed (unknown error)");
+        is_build_failed = true;
+      }
 
         std::scoped_lock lock{build_mutex};
         is_built = true;
@@ -490,6 +498,9 @@ void GraphicsPipeline::ConfigureImpl(bool is_indexed) {
 
 void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
                                      const RenderAreaPushConstant& render_area) {
+    if (is_build_failed.load(std::memory_order::relaxed)) {
+        return;
+    }
     scheduler.RequestRenderpass(texture_cache.GetFramebuffer());
 
     if (!is_built.load(std::memory_order::relaxed)) {
@@ -499,6 +510,9 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
             build_condvar.wait(lock, [this] { return is_built.load(std::memory_order::relaxed); });
         });
     }
+    if (is_build_failed.load(std::memory_order::relaxed)) {
+        return;
+    }
     const bool is_rescaling{texture_cache.IsRescaling()};
     const bool update_rescaling{scheduler.UpdateRescaling(is_rescaling)};
     const bool bind_pipeline{scheduler.UpdateGraphicsPipeline(this)};
@@ -507,6 +521,9 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
                       is_rescaling, update_rescaling,
                       uses_render_area = render_area.uses_render_area,
                       render_area_data = render_area.words](vk::CommandBuffer cmdbuf) {
+        if (is_build_failed.load(std::memory_order::relaxed)) {
+            return;
+        }
         if (bind_pipeline) {
             cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline);
         }
@@ -878,29 +895,34 @@ void GraphicsPipeline::MakePipeline(VkRenderPass render_pass) {
     if (device.IsKhrPipelineExecutablePropertiesEnabled()) {
         flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
     }
-    pipeline = device.GetLogical().CreateGraphicsPipeline(
-        {
-            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = flags,
-            .stageCount = static_cast<u32>(shader_stages.size()),
-            .pStages = shader_stages.data(),
-            .pVertexInputState = &vertex_input_ci,
-            .pInputAssemblyState = &input_assembly_ci,
-            .pTessellationState = &tessellation_ci,
-            .pViewportState = &viewport_ci,
-            .pRasterizationState = &rasterization_ci,
-            .pMultisampleState = &multisample_ci,
-            .pDepthStencilState = &depth_stencil_ci,
-            .pColorBlendState = &color_blend_ci,
-            .pDynamicState = &dynamic_state_ci,
-            .layout = *pipeline_layout,
-            .renderPass = render_pass,
-            .subpass = 0,
-            .basePipelineHandle = nullptr,
-            .basePipelineIndex = 0,
-        },
-        *pipeline_cache);
+    const VkGraphicsPipelineCreateInfo ci{
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = flags,
+        .stageCount = static_cast<u32>(shader_stages.size()),
+        .pStages = shader_stages.data(),
+        .pVertexInputState = &vertex_input_ci,
+        .pInputAssemblyState = &input_assembly_ci,
+        .pTessellationState = &tessellation_ci,
+        .pViewportState = &viewport_ci,
+        .pRasterizationState = &rasterization_ci,
+        .pMultisampleState = &multisample_ci,
+        .pDepthStencilState = &depth_stencil_ci,
+        .pColorBlendState = &color_blend_ci,
+        .pDynamicState = &dynamic_state_ci,
+        .layout = *pipeline_layout,
+        .renderPass = render_pass,
+        .subpass = 0,
+        .basePipelineHandle = nullptr,
+        .basePipelineIndex = 0,
+    };
+    const VkResult result =
+        device.GetLogical().TryCreateGraphicsPipeline(ci, pipeline, *pipeline_cache);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR(Render_Vulkan, "Graphics pipeline creation failed with error: {}",
+                  static_cast<int>(result));
+        is_build_failed = true;
+    }
 }
 
 void GraphicsPipeline::Validate() {

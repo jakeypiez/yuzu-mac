@@ -103,6 +103,10 @@ public:
         return is_built.load(std::memory_order::relaxed);
     }
 
+    [[nodiscard]] bool IsBuildFailed() const noexcept {
+        return is_build_failed.load(std::memory_order::relaxed);
+    }
+
     template <typename Spec>
     static auto MakeConfigureSpecFunc() {
         return [](GraphicsPipeline* pl, bool is_indexed) { pl->ConfigureImpl<Spec>(is_indexed); };
@@ -155,6 +159,7 @@ private:
     std::condition_variable build_condvar;
     std::mutex build_mutex;
     std::atomic_bool is_built{false};
+    std::atomic_bool is_build_failed{false};
     bool uses_push_descriptor{false};
 };
 

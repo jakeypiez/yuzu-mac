@@ -55,10 +55,15 @@ public:
                         task = std::move(requests.front());
                         requests.pop();
                     }
-                    if constexpr (with_state) {
-                        task(&state);
-                    } else {
-                        task();
+                    try {
+                        if constexpr (with_state) {
+                            task(&state);
+                        } else {
+                            task();
+                        }
+                    } catch (const std::exception& e) {
+                        (void)e;
+                    } catch (...) {
                     }
                     ++work_done;
                 }

@@ -76,6 +76,7 @@ void EmuThread::run() {
     MicroProfileOnThreadCreate(name);
     Common::SetCurrentThreadName(name);
 
+  try {
     auto& gpu = m_system.GPU();
     auto stop_token = m_stop_source.get_token();
 
@@ -87,11 +88,17 @@ void EmuThread::run() {
 
     emit LoadProgress(VideoCore::LoadCallbackStage::Prepare, 0, 0);
     if (Settings::values.use_disk_shader_cache.GetValue()) {
-        m_system.Renderer().ReadRasterizer()->LoadDiskResources(
-            m_system.GetApplicationProcessProgramID(), stop_token,
-            [this](VideoCore::LoadCallbackStage stage, std::size_t value, std::size_t total) {
-                emit LoadProgress(stage, value, total);
-            });
+        try {
+            m_system.Renderer().ReadRasterizer()->LoadDiskResources(
+                m_system.GetApplicationProcessProgramID(), stop_token,
+                [this](VideoCore::LoadCallbackStage stage, std::size_t value, std::size_t total) {
+                    emit LoadProgress(stage, value, total);
+                });
+        } catch (const std::exception& e) {
+            LOG_ERROR(Frontend, "LoadDiskResources failed (continuing without cache): {}", e.what());
+        } catch (...) {
+            LOG_ERROR(Frontend, "LoadDiskResources failed (continuing without cache)");
+        }
     }
     emit LoadProgress(VideoCore::LoadCallbackStage::Complete, 0, 0);
 
@@ -124,6 +131,11 @@ void EmuThread::run() {
     // Shutdown the main emulated process
     m_system.DetachDebugger();
     m_system.ShutdownMainProcess();
+  } catch (const std::exception& e) {
+    LOG_CRITICAL(Frontend, "EmuControlThread exception: {}", e.what());
+  } catch (...) {
+    LOG_CRITICAL(Frontend, "EmuControlThread unknown exception");
+  }
 
 #if MICROPROFILE_ENABLED
     MicroProfileOnThreadExit();

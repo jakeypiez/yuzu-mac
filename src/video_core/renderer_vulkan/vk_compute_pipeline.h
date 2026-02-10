@@ -63,6 +63,7 @@ private:
     std::condition_variable build_condvar;
     std::mutex build_mutex;
     std::atomic_bool is_built{false};
+    std::atomic_bool is_build_failed{false};
 };
 
 } // namespace Vulkan

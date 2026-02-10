@@ -225,6 +225,10 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
     pipeline->SetEngine(maxwell3d, gpu_memory);
     pipeline->Configure(is_indexed);
 
+    if (pipeline->IsBuildFailed()) {
+        return;
+    }
+
     UpdateDynamicStates();
 
     HandleTransformFeedback();

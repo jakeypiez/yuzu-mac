@@ -571,9 +571,8 @@ DescriptorSets DescriptorPool::Allocate(const VkDescriptorSetAllocateInfo& ai) c
     case VK_SUCCESS:
         return DescriptorSets(std::move(sets), num, owner, handle, *dld);
     case VK_ERROR_OUT_OF_POOL_MEMORY:
-        return {};
     default:
-        throw Exception(result);
+        return {};
     }
 }
 
@@ -723,15 +722,45 @@ PipelineLayout Device::CreatePipelineLayout(const VkPipelineLayoutCreateInfo& ci
 Pipeline Device::CreateGraphicsPipeline(const VkGraphicsPipelineCreateInfo& ci,
                                         VkPipelineCache cache) const {
     VkPipeline object;
-    Check(dld->vkCreateGraphicsPipelines(handle, cache, 1, &ci, nullptr, &object));
+    const VkResult result = dld->vkCreateGraphicsPipelines(handle, cache, 1, &ci, nullptr, &object);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR(Render_Vulkan, "vkCreateGraphicsPipelines failed: {}", static_cast<int>(result));
+        return {};
+    }
     return Pipeline(object, handle, *dld);
+}
+
+VkResult Device::TryCreateGraphicsPipeline(const VkGraphicsPipelineCreateInfo& ci,
+                                           Pipeline& out,
+                                           VkPipelineCache cache) const {
+    VkPipeline object;
+    const VkResult result = dld->vkCreateGraphicsPipelines(handle, cache, 1, &ci, nullptr, &object);
+    if (result == VK_SUCCESS) {
+        out = Pipeline(object, handle, *dld);
+    }
+    return result;
 }
 
 Pipeline Device::CreateComputePipeline(const VkComputePipelineCreateInfo& ci,
                                        VkPipelineCache cache) const {
     VkPipeline object;
-    Check(dld->vkCreateComputePipelines(handle, cache, 1, &ci, nullptr, &object));
+    const VkResult result = dld->vkCreateComputePipelines(handle, cache, 1, &ci, nullptr, &object);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR(Render_Vulkan, "vkCreateComputePipelines failed: {}", static_cast<int>(result));
+        return {};
+    }
     return Pipeline(object, handle, *dld);
+}
+
+VkResult Device::TryCreateComputePipeline(const VkComputePipelineCreateInfo& ci,
+                                          Pipeline& out,
+                                          VkPipelineCache cache) const {
+    VkPipeline object;
+    const VkResult result = dld->vkCreateComputePipelines(handle, cache, 1, &ci, nullptr, &object);
+    if (result == VK_SUCCESS) {
+        out = Pipeline(object, handle, *dld);
+    }
+    return result;
 }
 
 Sampler Device::CreateSampler(const VkSamplerCreateInfo& ci) const {
@@ -767,7 +796,11 @@ QueryPool Device::CreateQueryPool(const VkQueryPoolCreateInfo& ci) const {
 
 ShaderModule Device::CreateShaderModule(const VkShaderModuleCreateInfo& ci) const {
     VkShaderModule object;
-    Check(dld->vkCreateShaderModule(handle, &ci, nullptr, &object));
+    const VkResult result = dld->vkCreateShaderModule(handle, &ci, nullptr, &object);
+    if (result != VK_SUCCESS) {
+        LOG_ERROR(Render_Vulkan, "vkCreateShaderModule failed: {}", static_cast<int>(result));
+        return {};
+    }
     return ShaderModule(object, handle, *dld);
 }
 

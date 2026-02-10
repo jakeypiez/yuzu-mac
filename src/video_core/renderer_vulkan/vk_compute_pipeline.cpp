@@ -41,6 +41,7 @@ ComputePipeline::ComputePipeline(const Device& device_, vk::PipelineCache& pipel
                 uniform_buffer_sizes.begin());
 
     auto func{[this, &descriptor_pool, shader_notify, pipeline_statistics] {
+      try {
         DescriptorLayoutBuilder builder{device};
         builder.Add(info, VK_SHADER_STAGE_COMPUTE_BIT);
 
@@ -58,30 +59,43 @@ ComputePipeline::ComputePipeline(const Device& device_, vk::PipelineCache& pipel
         if (device.IsKhrPipelineExecutablePropertiesEnabled()) {
             flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
         }
-        pipeline = device.GetLogical().CreateComputePipeline(
-            {
-                .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-                .pNext = nullptr,
-                .flags = flags,
-                .stage{
-                    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                    .pNext =
-                        device.IsExtSubgroupSizeControlSupported() ? &subgroup_size_ci : nullptr,
-                    .flags = 0,
-                    .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-                    .module = *spv_module,
-                    .pName = "main",
-                    .pSpecializationInfo = nullptr,
-                },
-                .layout = *pipeline_layout,
-                .basePipelineHandle = 0,
-                .basePipelineIndex = 0,
+        const VkComputePipelineCreateInfo compute_ci{
+            .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = flags,
+            .stage{
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .pNext =
+                    device.IsExtSubgroupSizeControlSupported() ? &subgroup_size_ci : nullptr,
+                .flags = 0,
+                .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+                .module = *spv_module,
+                .pName = "main",
+                .pSpecializationInfo = nullptr,
             },
-            *pipeline_cache);
+            .layout = *pipeline_layout,
+            .basePipelineHandle = 0,
+            .basePipelineIndex = 0,
+        };
+        const VkResult result =
+            device.GetLogical().TryCreateComputePipeline(compute_ci, pipeline, *pipeline_cache);
+        if (result != VK_SUCCESS) {
+            LOG_ERROR(Render_Vulkan, "Compute pipeline creation failed with error: {}",
+                      static_cast<int>(result));
+            is_build_failed = true;
+        }
 
-        if (pipeline_statistics) {
+        if (pipeline_statistics && !is_build_failed) {
             pipeline_statistics->Collect(*pipeline);
         }
+      } catch (const std::exception& e) {
+        LOG_ERROR(Render_Vulkan, "Compute pipeline build failed: {}", e.what());
+        is_build_failed = true;
+      } catch (...) {
+        LOG_ERROR(Render_Vulkan, "Compute pipeline build failed (unknown error)");
+        is_build_failed = true;
+      }
+
         std::scoped_lock lock{build_mutex};
         is_built = true;
         build_condvar.notify_one();
@@ -204,10 +218,16 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
             build_condvar.wait(lock, [this] { return is_built.load(std::memory_order::relaxed); });
         });
     }
+    if (is_build_failed.load(std::memory_order::relaxed)) {
+        return;
+    }
     const void* const descriptor_data{guest_descriptor_queue.UpdateData()};
     const bool is_rescaling = !info.texture_descriptors.empty() || !info.image_descriptors.empty();
     scheduler.Record([this, descriptor_data, is_rescaling,
                       rescaling_data = rescaling.Data()](vk::CommandBuffer cmdbuf) {
+        if (is_build_failed.load(std::memory_order::relaxed)) {
+            return;
+        }
         cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
         if (!descriptor_set_layout) {
             return;

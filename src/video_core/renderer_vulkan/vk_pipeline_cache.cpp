@@ -494,15 +494,31 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
         file.read(reinterpret_cast<char*>(&key), sizeof(key));
 
         workers.QueueWork([this, key, env_ = std::move(env), &state, &callback]() mutable {
-            ShaderPools pools;
-            auto pipeline{CreateComputePipeline(pools, key, env_, state.statistics.get(), false)};
-            std::scoped_lock lock{state.mutex};
-            if (pipeline) {
-                compute_cache.emplace(key, std::move(pipeline));
-            }
-            ++state.built;
-            if (state.has_loaded) {
-                callback(VideoCore::LoadCallbackStage::Build, state.built, state.total);
+            try {
+                ShaderPools pools;
+                auto pipeline{CreateComputePipeline(pools, key, env_, state.statistics.get(), false)};
+                std::scoped_lock lock{state.mutex};
+                if (pipeline) {
+                    compute_cache.emplace(key, std::move(pipeline));
+                }
+                ++state.built;
+                if (state.has_loaded) {
+                    callback(VideoCore::LoadCallbackStage::Build, state.built, state.total);
+                }
+            } catch (const std::exception& e) {
+                LOG_ERROR(Render_Vulkan, "Failed to load cached compute pipeline: {}", e.what());
+                std::scoped_lock lock{state.mutex};
+                ++state.built;
+                if (state.has_loaded) {
+                    callback(VideoCore::LoadCallbackStage::Build, state.built, state.total);
+                }
+            } catch (...) {
+                LOG_ERROR(Render_Vulkan, "Failed to load cached compute pipeline (unknown error)");
+                std::scoped_lock lock{state.mutex};
+                ++state.built;
+                if (state.has_loaded) {
+                    callback(VideoCore::LoadCallbackStage::Build, state.built, state.total);
+                }
             }
         });
         ++state.total;
@@ -525,21 +541,37 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
             return;
         }
         workers.QueueWork([this, key, envs_ = std::move(envs), &state, &callback]() mutable {
-            ShaderPools pools;
-            boost::container::static_vector<Shader::Environment*, 5> env_ptrs;
-            for (auto& env : envs_) {
-                env_ptrs.push_back(&env);
-            }
-            auto pipeline{CreateGraphicsPipeline(pools, key, MakeSpan(env_ptrs),
-                                                 state.statistics.get(), false)};
+            try {
+                ShaderPools pools;
+                boost::container::static_vector<Shader::Environment*, 5> env_ptrs;
+                for (auto& env : envs_) {
+                    env_ptrs.push_back(&env);
+                }
+                auto pipeline{CreateGraphicsPipeline(pools, key, MakeSpan(env_ptrs),
+                                                     state.statistics.get(), false)};
 
-            std::scoped_lock lock{state.mutex};
-            if (pipeline) {
-                graphics_cache.emplace(key, std::move(pipeline));
-            }
-            ++state.built;
-            if (state.has_loaded) {
-                callback(VideoCore::LoadCallbackStage::Build, state.built, state.total);
+                std::scoped_lock lock{state.mutex};
+                if (pipeline) {
+                    graphics_cache.emplace(key, std::move(pipeline));
+                }
+                ++state.built;
+                if (state.has_loaded) {
+                    callback(VideoCore::LoadCallbackStage::Build, state.built, state.total);
+                }
+            } catch (const std::exception& e) {
+                LOG_ERROR(Render_Vulkan, "Failed to load cached graphics pipeline: {}", e.what());
+                std::scoped_lock lock{state.mutex};
+                ++state.built;
+                if (state.has_loaded) {
+                    callback(VideoCore::LoadCallbackStage::Build, state.built, state.total);
+                }
+            } catch (...) {
+                LOG_ERROR(Render_Vulkan, "Failed to load cached graphics pipeline (unknown error)");
+                std::scoped_lock lock{state.mutex};
+                ++state.built;
+                if (state.has_loaded) {
+                    callback(VideoCore::LoadCallbackStage::Build, state.built, state.total);
+                }
             }
         });
         ++state.total;
@@ -704,6 +736,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     }
     LOG_ERROR(Render_Vulkan, "{}", exception.what());
     return nullptr;
+} catch (const vk::Exception& exception) {
+    LOG_ERROR(Render_Vulkan, "Vulkan error creating graphics pipeline: {}", exception.what());
+    return nullptr;
 }
 
 std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline() {
@@ -781,6 +816,9 @@ std::unique_ptr<ComputePipeline> PipelineCache::CreateComputePipeline(
 
 } catch (const Shader::Exception& exception) {
     LOG_ERROR(Render_Vulkan, "{}", exception.what());
+    return nullptr;
+} catch (const vk::Exception& exception) {
+    LOG_ERROR(Render_Vulkan, "Vulkan error creating compute pipeline: {}", exception.what());
     return nullptr;
 }
 

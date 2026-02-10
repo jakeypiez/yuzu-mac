@@ -181,7 +181,15 @@ void Scheduler::WorkerThread(std::stop_token stop_token) {
             // Perform the work, tracking whether the chunk was a submission
             // before executing.
             const bool has_submit = work->HasSubmit();
-            work->ExecuteAll(current_cmdbuf, current_upload_cmdbuf);
+            try {
+                work->ExecuteAll(current_cmdbuf, current_upload_cmdbuf);
+            } catch (const vk::Exception& exception) {
+                LOG_CRITICAL(Render_Vulkan, "Vulkan exception on worker thread: {}",
+                             exception.what());
+            } catch (const std::exception& exception) {
+                LOG_CRITICAL(Render_Vulkan, "Exception on worker thread: {}",
+                             exception.what());
+            }
 
             // If the chunk was a submission, reallocate the command buffer.
             if (has_submit) {

@@ -978,8 +978,18 @@ public:
     Pipeline CreateGraphicsPipeline(const VkGraphicsPipelineCreateInfo& ci,
                                     VkPipelineCache cache = nullptr) const;
 
+    /// Non-throwing version — returns VkResult and outputs pipeline via out param.
+    VkResult TryCreateGraphicsPipeline(const VkGraphicsPipelineCreateInfo& ci,
+                                       Pipeline& out,
+                                       VkPipelineCache cache = nullptr) const;
+
     Pipeline CreateComputePipeline(const VkComputePipelineCreateInfo& ci,
                                    VkPipelineCache cache = nullptr) const;
+
+    /// Non-throwing version — returns VkResult and outputs pipeline via out param.
+    VkResult TryCreateComputePipeline(const VkComputePipelineCreateInfo& ci,
+                                      Pipeline& out,
+                                      VkPipelineCache cache = nullptr) const;
 
     Sampler CreateSampler(const VkSamplerCreateInfo& ci) const;
 
@@ -1140,7 +1150,9 @@ public:
     }
 
     void BindPipeline(VkPipelineBindPoint bind_point, VkPipeline pipeline) const noexcept {
-        dld->vkCmdBindPipeline(handle, bind_point, pipeline);
+        if (pipeline) {
+            dld->vkCmdBindPipeline(handle, bind_point, pipeline);
+        }
     }
 
     void BindIndexBuffer(VkBuffer buffer, VkDeviceSize offset,
