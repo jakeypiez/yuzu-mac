@@ -228,6 +228,18 @@ Result GetInfo(Core::System& system, u64* result, InfoType info_id_type, Handle 
         *result = system.Kernel().CurrentScheduler()->GetIdleThread()->GetCpuTime();
         R_SUCCEED();
     }
+    case InfoType::AliasRegionExtraSize: {
+        // AliasRegionExtraSize (fw 18.0.0+) - used by nn::os::detail::VammManager.
+        // Return 0 to indicate VAMM is not available.
+        R_UNLESS(info_sub_id == 0, ResultInvalidEnumValue);
+
+        const auto& handle_table = GetCurrentProcess(system.Kernel()).GetHandleTable();
+        KScopedAutoObject process = handle_table.GetObject<KProcess>(handle);
+        R_UNLESS(process.IsNotNull(), ResultInvalidHandle);
+
+        *result = 0;
+        R_SUCCEED();
+    }
     case InfoType::MesosphereCurrentProcess: {
         // Verify the input handle is invalid.
         R_UNLESS(handle == InvalidHandle, ResultInvalidHandle);
