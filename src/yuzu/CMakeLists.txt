@@ -357,10 +357,14 @@ if (APPLE)
 
     if (NOT USE_SYSTEM_MOLTENVK)
         set(MOLTENVK_PLATFORM "macOS")
-        set(MOLTENVK_VERSION "v1.2.7")
+        set(MOLTENVK_VERSION "v1.4.0-yuzu")
         download_moltenvk_external(${MOLTENVK_PLATFORM} ${MOLTENVK_VERSION})
+        # Use the downloaded universal binary directly to avoid picking up a
+        # homebrew single-arch build that crashes on Apple Silicon.
+        set(MOLTENVK_LIBRARY "${CMAKE_BINARY_DIR}/externals/MoltenVK/MoltenVK/dylib/${MOLTENVK_PLATFORM}/libMoltenVK.dylib")
+    else()
+        find_library(MOLTENVK_LIBRARY MoltenVK REQUIRED)
     endif()
-    find_library(MOLTENVK_LIBRARY MoltenVK REQUIRED)
     message(STATUS "Using MoltenVK at ${MOLTENVK_LIBRARY}.")
     set_source_files_properties(${MOLTENVK_LIBRARY} PROPERTIES MACOSX_PACKAGE_LOCATION Frameworks
                                     XCODE_FILE_ATTRIBUTES "CodeSignOnCopy")
