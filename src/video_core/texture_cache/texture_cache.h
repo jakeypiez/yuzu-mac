@@ -1338,26 +1338,42 @@ void TextureCache<P>::TickAsyncDecode() {
 
 template <class P>
 bool TextureCache<P>::ScaleUp(Image& image) {
-    const bool has_copy = image.HasScaled();
-    const bool rescaled = image.ScaleUp();
-    if (!rescaled) {
+    try {
+        const bool has_copy = image.HasScaled();
+        const bool rescaled = image.ScaleUp();
+        if (!rescaled) {
+            return false;
+        }
+        if (!has_copy) {
+            total_used_memory += GetScaledImageSizeBytes(image);
+        }
+        InvalidateScale(image);
+        return true;
+    } catch (const std::exception& e) {
+        LOG_ERROR(HW_GPU, "ScaleUp failed: {}", e.what());
+        return false;
+    } catch (...) {
+        LOG_ERROR(HW_GPU, "ScaleUp failed (unknown error)");
         return false;
     }
-    if (!has_copy) {
-        total_used_memory += GetScaledImageSizeBytes(image);
-    }
-    InvalidateScale(image);
-    return true;
 }
 
 template <class P>
 bool TextureCache<P>::ScaleDown(Image& image) {
-    const bool rescaled = image.ScaleDown();
-    if (!rescaled) {
+    try {
+        const bool rescaled = image.ScaleDown();
+        if (!rescaled) {
+            return false;
+        }
+        InvalidateScale(image);
+        return true;
+    } catch (const std::exception& e) {
+        LOG_ERROR(HW_GPU, "ScaleDown failed: {}", e.what());
+        return false;
+    } catch (...) {
+        LOG_ERROR(HW_GPU, "ScaleDown failed (unknown error)");
         return false;
     }
-    InvalidateScale(image);
-    return true;
 }
 
 template <class P>

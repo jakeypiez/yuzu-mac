@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "common/cityhash.h"
+#include "common/logging/log.h"
 #include "common/microprofile.h"
 #include "common/settings.h"
 #include "core/core.h"
@@ -33,8 +34,14 @@ void DmaPusher::DispatchCalls() {
     dma_state.is_last_call = true;
 
     while (system.IsPoweredOn()) {
-        if (!Step()) {
-            break;
+        try {
+            if (!Step()) {
+                break;
+            }
+        } catch (const std::exception& e) {
+            LOG_CRITICAL(HW_GPU, "DMA pusher exception: {}", e.what());
+        } catch (...) {
+            LOG_CRITICAL(HW_GPU, "DMA pusher unknown exception");
         }
     }
     gpu.FlushCommands();

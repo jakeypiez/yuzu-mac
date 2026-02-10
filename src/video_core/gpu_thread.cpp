@@ -40,16 +40,22 @@ static void RunThread(std::stop_token stop_token, Core::System& system,
         if (stop_token.stop_requested()) {
             break;
         }
-        if (auto* submit_list = std::get_if<SubmitListCommand>(&next.data)) {
-            scheduler.Push(submit_list->channel, std::move(submit_list->entries));
-        } else if (std::holds_alternative<GPUTickCommand>(next.data)) {
-            system.GPU().TickWork();
-        } else if (const auto* flush = std::get_if<FlushRegionCommand>(&next.data)) {
-            rasterizer->FlushRegion(flush->addr, flush->size);
-        } else if (const auto* invalidate = std::get_if<InvalidateRegionCommand>(&next.data)) {
-            rasterizer->OnCacheInvalidation(invalidate->addr, invalidate->size);
-        } else {
-            ASSERT(false);
+        try {
+            if (auto* submit_list = std::get_if<SubmitListCommand>(&next.data)) {
+                scheduler.Push(submit_list->channel, std::move(submit_list->entries));
+            } else if (std::holds_alternative<GPUTickCommand>(next.data)) {
+                system.GPU().TickWork();
+            } else if (const auto* flush = std::get_if<FlushRegionCommand>(&next.data)) {
+                rasterizer->FlushRegion(flush->addr, flush->size);
+            } else if (const auto* invalidate = std::get_if<InvalidateRegionCommand>(&next.data)) {
+                rasterizer->OnCacheInvalidation(invalidate->addr, invalidate->size);
+            } else {
+                ASSERT(false);
+            }
+        } catch (const std::exception& e) {
+            LOG_CRITICAL(HW_GPU, "GPU thread exception: {}", e.what());
+        } catch (...) {
+            LOG_CRITICAL(HW_GPU, "GPU thread unknown exception");
         }
         state.signaled_fence.store(next.fence);
         if (next.block) {
