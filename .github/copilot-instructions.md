@@ -131,13 +131,28 @@ The CMake download in `CMakeModules/DownloadExternals.cmake` fetches MoltenVK fr
 - Removed the two `fmt::print(stderr, ...)` lines in the `FastmemCallback` fail path.
 - These were flooding stderr with millions of messages when a failed JIT block's memory accesses hit the fastmem handler.
 
+### GPU/DMA exception safety (`17e9cf4464`)
+- Wrapped `ScaleUp()`/`ScaleDown()` in `texture_cache.h` with try-catch to handle `vk::Exception` from failed `vmaCreateImage()` calls (returns `false` instead of propagating).
+- Wrapped GPU thread dispatch loop in `gpu_thread.cpp` with try-catch to prevent uncaught exceptions from calling `std::terminate()`.
+- Wrapped DMA pusher `Step()` loop in `dma_pusher.cpp` with try-catch.
+- Fixes `RescaleRenderTargets()` crash in Nordic Ashes and other games that trigger Vulkan image creation failures.
+
+### Dynarmic JIT: VectorMin/MaxU64/S64 (`17e9cf4464`, in submodule)
+- Implemented `VectorMinU64`, `VectorMaxU64`, `VectorMinS64`, `VectorMaxS64` in `emit_arm64_vector.cpp`.
+- Uses ARM64 NEON `CMHI` (unsigned) or `CMGT` (signed) + `BSL` (bitwise select) on `D2`/`B16` arrangements.
+- Fixes Nordic Ashes infinite loading hang — the game's code uses `VectorMinU64`, which was previously unimplemented, causing the JIT to cache the block as `return_to_dispatcher` and spin at 100% CPU without advancing.
+
+### Dynarmic JIT: opcode emission diagnostics (`17e9cf4464`, in submodule)
+- Added try-catch in the main IR emission loop (`emit_arm64.cpp`) that re-throws with the opcode name.
+- Error messages now include the specific unimplemented opcode (e.g., `Unimplemented opcode: VectorMinU64`) instead of just `Unimplemented`.
+
 ### MoltenVK download from fork (uncommitted)
 - Updated `DownloadExternals.cmake` to download from `jakeypiez/MoltenVK` instead of `KhronosGroup/MoltenVK`.
 - Updated `src/yuzu/CMakeLists.txt` to use version `v1.4.0-yuzu` and set `MOLTENVK_LIBRARY` directly from the download path (bypasses `find_library`).
 
 ## Submodule Workflow
 
-The `externals/dynarmic` submodule contains local changes (in `externals/mcl/src/assert.cpp` and `src/dynarmic/backend/arm64/address_space.cpp`). To commit submodule changes:
+The `externals/dynarmic` submodule contains local changes (in `externals/mcl/src/assert.cpp`, `src/dynarmic/backend/arm64/address_space.cpp`, `src/dynarmic/backend/arm64/emit_arm64.cpp`, and `src/dynarmic/backend/arm64/emit_arm64_vector.cpp`). To commit submodule changes:
 
 ```bash
 # 1. Commit inside the submodule
@@ -155,4 +170,4 @@ git commit -m "Update dynarmic submodule"
 - **Fork**: [jakeypiez/yuzu-mac](https://github.com/jakeypiez/yuzu-mac)
 - **MoltenVK fork**: [jakeypiez/MoltenVK](https://github.com/jakeypiez/MoltenVK) (release `v1.4.0-yuzu`)
 - **Branch**: `macos-build` (pushed to remote `main`)
-- **Release**: v1.0.1 DMG on GitHub Releases
+- **Release**: v1.0.2 DMG on GitHub Releases
